@@ -49,14 +49,21 @@ export const registerUser = asyncHandler(async (req, res) => {
         isVerified: false,
         verificationToken: verifyEmailToken, 
         verificationTokenExpires: Date.now() + 1000 * 60 * 60 * 24, // 24h
+        lastVerificationEmailSentAt: Date.now(),
         emailRequestsNumber: "5",
     });
-
-    console.log(`User created ${user}`)
     
     if (user) {
+        // define o link de verificação de email.
+        const link = `${process.env.WEBSITE_URL}/verify?token=${verifyEmailToken}`;
+
+        console.log(`User created ${user}`)
+        
+        // envia email com o link
+        await sendEmail(email, 'Verifique seu e-mail', `Clique para verificar: ${link}`);
+
         // envia uma resposta json com o id do user e o email
-        return res.status(201).json({_id: user.id, email: user.email});
+        return res.status(201).json({_id: user.id, email: user.email, message: "Usuário criado e e-mail de verificação enviado." });
     } else {
         res.status(400)
         throw new Error("User data is not valid")

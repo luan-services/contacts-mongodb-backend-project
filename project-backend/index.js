@@ -11,6 +11,7 @@ import { errorHandler } from "./middleware/errorHandler.js"
 import { connectDatabase } from "./config/connectDatabase.js"
 // importa library que manipula cookies
 import cookieParser from "cookie-parser"
+import { rateLimitHandler } from "./middleware/rateLimitHandler.js"
 
 
 
@@ -32,10 +33,10 @@ app.use(express.json())
 app.use(cookieParser()); // 👈 Isso é necessário para ler os cookies
 
 // app.use() define uma série de routes (comandos get e post) importados de "./routes/contactRoutes" no endereço "/api/contacts", esses routes possuem seus proprios endereços que ao juntar com "api/contacts" se completam, ex o router.route("/").get() forma o endereço forma o comando GET para o endereço "/api/contacts" + "/" (GET: /api/contacts/)
-app.use("/api/contacts", contactRoutes)
+app.use("/api/contacts", rateLimitHandler(15 * 60 * 1000, 100), contactRoutes)
 
 // novo router, agora apontando pra users
-app.use("/api/users", userRoutes)
+app.use("/api/users", rateLimitHandler(15 * 60 * 1000, 100), userRoutes)
 
 // possibilita de usar a função errorHandler no server toda vez que a função throw new Error() é chamada
 app.use(errorHandler)

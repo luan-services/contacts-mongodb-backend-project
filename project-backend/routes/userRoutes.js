@@ -10,6 +10,8 @@ import { userRegisterSchema, userLoginSchema, userResendEmailSchema, userVerifyS
 
 import { validateJwtToken } from "../middleware/validateTokenHandler.js"
 
+import { rateLimitHandler } from "../middleware/rateLimitHandler.js";
+
 // importa o router do express
 const router = express.Router();
 
@@ -17,7 +19,7 @@ const router = express.Router();
 // função post, que contem: validate() primeiro, joi checa se é um objeto válido para previnir ataques > registerUser depois (direto do mongoose, com validação de db também)
 router.post("/register", validateJoiSchema(userRegisterSchema, "body"), registerUser)
 // função post que valida apenas alguns dados de login
-router.post("/login", validateJoiSchema(userLoginSchema, "body"), loginUser)
+router.post("/login", rateLimitHandler(10 * 60 * 1000, 5), validateJoiSchema(userLoginSchema, "body"), loginUser)
 
 router.get("/current", validateJwtToken, currentUser)
 
