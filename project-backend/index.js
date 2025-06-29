@@ -37,7 +37,6 @@ app.use("/api/contacts", contactRoutes)
 // novo router, agora apontando pra users
 app.use("/api/users", userRoutes)
 
-
 // possibilita de usar a função errorHandler no server toda vez que a função throw new Error() é chamada
 app.use(errorHandler)
 

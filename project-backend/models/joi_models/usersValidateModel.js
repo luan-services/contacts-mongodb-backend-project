@@ -41,3 +41,13 @@ export const userResendEmailSchema = Joi.object({
         'any.required': 'Email is required'
     })
 });
+
+export const userVerifySchema = Joi.object({
+  token: Joi.string().length(64).hex().required().messages({
+      'string.base': '"token" must be a string',
+      'string.empty': '"token" cannot be empty',
+      'string.length': '"token" must be exactly 64 characters',
+      'string.hex': '"token" must be a valid hexadecimal string',
+      'any.required': '"token" is required',
+    }),
+});
