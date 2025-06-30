@@ -35,14 +35,14 @@ export const userLoginSchema = Joi.object({
     })
 });
 
-export const userResendEmailSchema = Joi.object({
+export const userEmailSchema = Joi.object({
     email: Joi.string().email().required().messages({
         'string.email': 'A valid email is required',
         'any.required': 'Email is required'
     })
 });
 
-export const userVerifySchema = Joi.object({
+export const cryptoTokenSchema = Joi.object({
   token: Joi.string().length(64).hex().required().messages({
       'string.base': '"token" must be a string',
       'string.empty': '"token" cannot be empty',
@@ -50,4 +50,12 @@ export const userVerifySchema = Joi.object({
       'string.hex': '"token" must be a valid hexadecimal string',
       'any.required': '"token" is required',
     }),
+});
+
+export const userPasswordSchema = Joi.object({
+    newPassword: Joi.string().min(8).required().messages({
+        'string.empty': 'New Password is required',
+        'any.required': 'New Password is required',
+        'string.min': 'New Password must be at least {#limit} characters'
+    })
 });

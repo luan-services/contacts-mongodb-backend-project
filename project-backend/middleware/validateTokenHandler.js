@@ -25,14 +25,12 @@ export const validateJwtToken = asyncHandler( async (req, res, next) => {
             }
 
             // check para ver se o usuário não existem mais (caso em que o usuário é banido e seus dados apagados, mas ainda possui um token por 15min)
-            const user = await User.findById(decoded.id);
+            const user = await User.findById(decoded.user.id);
             if (!user) {
                 res.status(401);
                 throw new Error("User not found or no longer exists");
             }
 
-            // caso sim, printa o token
-            console.log(decoded.user)
             // decodifica 'user' que são os dados do usuário salvos no token e passa para o request enviado (em req.user)
             req.user = decoded.user
 

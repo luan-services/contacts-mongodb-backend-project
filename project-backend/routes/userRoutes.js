@@ -1,12 +1,12 @@
 import express from "express"
 
 // importando os controllers de Users
-import {registerUser, loginUser, currentUser, refreshToken, logoutUser, verifyUser, resendEmailVerification} from "../controllers/userControllers.js"
+import {registerUser, loginUser, currentUser, refreshToken, logoutUser, verifyUser, resendEmailVerification, forgotPassword, resetPassword, verifyResetPassword} from "../controllers/userControllers.js"
 
 // importa o middleware de validação do JOI
 import { validateJoiSchema } from "../middleware/validateJoiSchema.js";
 // importa o schema do JOI
-import { userRegisterSchema, userLoginSchema, userResendEmailSchema, userVerifySchema } from "../models/joi_models/usersValidateModel.js";
+import { userRegisterSchema, userLoginSchema, userEmailSchema, cryptoTokenSchema, userPasswordSchema } from "../models/joi_models/usersValidateModel.js";
 
 import { validateJwtToken } from "../middleware/validateTokenHandler.js"
 
@@ -29,8 +29,15 @@ router.post("/refresh", refreshToken);
 router.post("/logout", logoutUser);
 
 // query pega os dados que vem dps do ? ex: ?token=123 (é diferente de params, que é /:123)
-router.post('/verify', validateJoiSchema(userVerifySchema, "query"),verifyUser)
+router.post('/verify', validateJoiSchema(cryptoTokenSchema, "query"), verifyUser)
 
-router.post('/resend-verification', validateJoiSchema(userResendEmailSchema, "body"), resendEmailVerification)
+router.post('/resend-verification', validateJoiSchema(userEmailSchema, "body"), resendEmailVerification)
+
+router.post('/forgot-password', validateJoiSchema(userEmailSchema, "body"), forgotPassword)
+
+router.get('/reset-password', validateJoiSchema(cryptoTokenSchema, "query"), verifyResetPassword)
+
+router.post('/reset-password', validateJoiSchema(cryptoTokenSchema, "query"), validateJoiSchema(userPasswordSchema, "body"), resetPassword)
+
 
 export default router

@@ -30,6 +30,12 @@ const userSchema = mongoose.Schema({
     verificationTokenExpires: { 
         type: Date 
     },
+    passwordToken: { 
+        type: String 
+    },
+    passwordTokenExpires: { 
+        type: Date 
+    },
     lastVerificationEmailSentAt: { 
         type: Date 
     },

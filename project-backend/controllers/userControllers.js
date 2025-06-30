@@ -28,12 +28,6 @@ export const registerUser = asyncHandler(async (req, res) => {
     // passa os dados do request para constantes
     const {username, email, password} = req.body
 
-    // hashing da senha (12 é o numero de salt_rounds (qts vezes o hashing é aplicado))
-    const hashedPassword = await bcrypt.hash(password, 10)
-
-    // gera token de confirmação de email
-    const verifyEmailToken = generateToken()
-
     // apesar do mongoose já dar levantar erro se o email já existir no db, é boa pratica usar um tester:
     const userExists = await User.findOne({ email });
     if (userExists) {
@@ -41,13 +35,24 @@ export const registerUser = asyncHandler(async (req, res) => {
         throw new Error('User already exists');
     }   
 
+    // hashing da senha (12 é o numero de salt_rounds (qts vezes o hashing é aplicado))
+    const hashedPassword = await bcrypt.hash(password, 10)
+
+    // gera token de confirmação de email
+    const verifyEmailToken = generateToken()
+
+    // precisa hashear o token de verificação
+    const hashedEmailToken = crypto.createHash('sha256').update(verifyEmailToken).digest('hex');
+
     // Usa o model do mangoose para criar uma row (um objeto) de usuario  (todas essas funções vem diretamente do schema do mangoose, que vem com funções built-in para gerenciar o db)
     const user = await User.create({
         username: username,
         email: email,
         password: hashedPassword,    
         isVerified: false,
-        verificationToken: verifyEmailToken, 
+        verificationToken: hashedEmailToken, 
+        passwordToken: hashedEmailToken,  // mesmo que não use password token no registro, precisa setar um qlqr se não o bd não usa
+        passwordTokenExpires: Date.now() + 1000 * 2, // 24h // mesmo que não use password token no registro, precisa setar um qlqr se não o bd não usa
         verificationTokenExpires: Date.now() + 1000 * 60 * 60 * 24, // 24h
         lastVerificationEmailSentAt: Date.now(),
         emailRequestsNumber: "5",
@@ -224,9 +229,12 @@ export const verifyUser = asyncHandler(async (req, res) => {
         throw new Error('Token ausente')
     }
 
+    // hasheando o token recebido para procurar no bd
+    const hashedEmailToken = crypto.createHash('sha256').update(token).digest('hex');
+
     const user = await User.findOne({
-        verificationToken: token,
-        verificationTokenExpires: { $gt: Date.now() }
+        verificationToken: hashedEmailToken,
+        verificationTokenExpires: { $gt: Date.now() } // maior que agr (ainda n expirou)
     });
 
     if (!user) {
@@ -279,8 +287,11 @@ export const resendEmailVerification = asyncHandler(async (req, res) => {
     // caso ele ainda tenha + de 0 requests, cria um token para verificação de email
     const token = generateToken();
 
+    // precisa hashear o token de verificação
+    const hashedEmailToken = crypto.createHash('sha256').update(token).digest('hex');
+
     // salva o token no bd
-    user.verificationToken = token;
+    user.verificationToken = hashedEmailToken;
     // seta uma data para expiorar
     user.verificationTokenExpires = now + 1000 * 60 * 60 * 24;
     // se estiver em cooldown mantem o lastverification email, se não, seta pra now
@@ -289,6 +300,7 @@ export const resendEmailVerification = asyncHandler(async (req, res) => {
     user.emailRequestsNumber = cooldown ? (parseInt(user.emailRequestsNumber) -1).toString() : "4";
 
     await user.save()
+    console.log(token)
     console.log(user)
 
     // define o link de verificação de email.
@@ -298,3 +310,114 @@ export const resendEmailVerification = asyncHandler(async (req, res) => {
 
     return res.json({ message: 'Novo e-mail de verificação enviado.' });
 })
+
+//@desc Reset password
+//@route POST /api/users/forgot-password
+//@access public
+export const forgotPassword = asyncHandler(async (req, res) => {
+    const { email } = req.body;
+    const user = await User.findOne({ email });
+
+    if (!user) {
+        res.status(200).json({ message: 'If the email exists, a reset link was sent' });
+        return;
+    }
+
+    // seta o cooldown em minutos
+    const COOLDOWN_MINUTES = 60;
+    // pega a data
+    const now = Date.now();
+    // ve se o usuário está em cooldown
+    const cooldown = checkCooldown(now, user.lastVerificationEmailSentAt, COOLDOWN_MINUTES)
+
+    // caso sim, se ele tiver 0 requests, manda aguardar
+    if (cooldown) { 
+        if (parseInt(user.emailRequestsNumber) <= 0) {
+            res.status(429)
+            throw new Error(`Aguarde ${cooldown} minuto(s) antes de reenviar o e-mail`);
+        } 
+    }
+
+    const token = generateToken();
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+    user.passwordToken = hashedToken;
+    user.passwordTokenExpires = Date.now() + 1000 * 60 * 15; // 15 mins
+
+    // se estiver em cooldown mantem o lastverification email, se não, seta pra now
+    user.lastVerificationEmailSentAt = cooldown ? user.lastVerificationEmailSentAt : now;
+    // se estiver em cooldown passa a qtd de requests disponivieis pra current -1, se não, bota 4
+    user.emailRequestsNumber = cooldown ? (parseInt(user.emailRequestsNumber) -1).toString() : "4";
+    await user.save();
+
+    console.log("token ", token)
+    console.log(user)
+
+    const link = `${process.env.WEBSITE_URL}/reset-password/${token}`;
+
+    await sendEmail({
+        to: user.email,
+        subject: 'Password Reset Request',
+        text: `Reset your password: ${link}`,
+    });
+
+    return res.status(200).json({ message: 'If the email exists, a reset link was sent!' });
+});
+
+//@desc Verify password reset token
+//@route GET /api/users/reset-password?token=
+//@access private
+export const verifyResetPassword = asyncHandler(async (req, res) => {
+    const { token } = req.query;
+    console.log("toki ", token)
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+    console.log("hash ", hashedToken)
+
+    const user = await User.findOne({
+        passwordToken: hashedToken,
+        passwordTokenExpires: { $gt: Date.now() }
+    });
+
+    if (!user) {
+        res.status(400);
+        throw new Error('Invalid or expired token');
+    }
+
+    return res.status(200).json({ message: 'Token is valid' });
+});
+
+
+//@desc Verify password reset token and reset password
+//@route POST /api/users/reset-password?token=
+//@access private
+export const resetPassword = asyncHandler(async (req, res) => {
+    const { token } = req.query
+    const { newPassword } = req.body;
+
+    if (!newPassword) {
+        res.status(400);
+        throw new Error('No new password on request body');
+    }
+
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+    const user = await User.findOne({
+        passwordToken: hashedToken,
+        passwordTokenExpires: { $gt: Date.now() }
+    });
+
+    if (!user) {
+        res.status(400);
+        throw new Error('Invalid or expired token');
+    }
+
+    // hashing da senha (12 é o numero de salt_rounds (qts vezes o hashing é aplicado))
+    const hashedPassword = await bcrypt.hash(newPassword, 10)
+
+    user.password = hashedPassword;
+    user.passwordToken = undefined;
+    user.passwordTokenExpires = undefined;
+    await user.save();
+
+    return res.status(200).json({ message: 'Password has been reset' });
+});
