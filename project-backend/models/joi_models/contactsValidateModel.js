@@ -2,6 +2,10 @@ import Joi from "joi"
 
 // define o model joi da table contacts
 export const contactCreateSchema = Joi.object({
+    user_id: Joi.string().messages({
+        'string.empty': 'User ID is required',
+        'any.required': 'User ID is required'
+    }),
     name: Joi.string().min(1).required().messages({ // define o campo name
         'string.empty': 'Name is required', // mensagens custom para cada erro, se não adicionadas, o joi lança mensagens padrao
         'any.required': 'Name is required'

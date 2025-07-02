@@ -3,6 +3,8 @@ import { getContacts, createContact, getContact, updateContact, deleteContact } 
 
 // importa o middleware de validação do JOI
 import { validateJoiSchema } from "../middleware/validateJoiSchema.js";
+//importa middleware de validação de token
+import { validateJwtToken } from "../middleware/validateTokenHandler.js";
 // importa o schema do JOI
 import { contactCreateSchema, contactSearchSchema } from "../models/joi_models/contactsValidateModel.js";
 
@@ -10,6 +12,8 @@ import express from "express"
 
 // importa o router do express
 const router = express.Router();
+
+router.use(validateJwtToken)
 
 // seta o endereço do route( a ser adicionado ao endereço principal em server.js) + qual função vai ser usada
 router.route("/").get(getContacts)
